@@ -157,6 +157,29 @@ public:
             {
                 ROS_ERROR("Error calling multiview recognition service. ");
                 return false;
+            } else {
+            	std::string results_dir = directory_ + "/" + "results";
+            	boost::filesystem::create_directory(results_dir);
+
+            	recognition_srv_definitions::recognize::Response &resp = srv_rec.response;
+            	for(int i = 0; i < resp.ids.size(); i++) {
+            		std::string id = resp.ids[i].data;
+            		std::vector<geometry_msgs::Point32> bbox = resp.bbox[i].point;
+            		geometry_msgs::Transform t = resp.transforms[i];
+            		sensor_msgs::PointCloud2 model_cloud_ros = resp.models_cloud[i];
+
+            		pcl::PointCloud<pcl::PointXYZRGB> model_cloud;
+            		pcl::fromROSMsg(model_cloud_ros, model_cloud);
+            		/*model_cloud.sensor_orientation_ = Eigen::Quaternion<float>(t.rotation.w,
+            				t.rotation.x, t.rotation.y, t.rotation.z);
+            		model_cloud.sensor_origin_ = Eigen::Vector4f(
+            				t.translation.x, t.translation.y, t.translation.z, 1);*/
+            		pcl::io::savePCDFile(results_dir + "/" + id + ".pcd", model_cloud);
+            		std::ofstream t_file((results_dir + "/" + id + ".transformation").c_str());
+            		t_file << t.translation.x << " " << t.translation.y << " " << t.translation.z <<
+            				" " << t.rotation.w << " " << t.rotation.x << " " << t.rotation.y <<
+            				" " << t.rotation.z << std::endl;
+            	}
             }
         }
     }
