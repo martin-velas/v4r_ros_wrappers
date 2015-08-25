@@ -3,7 +3,7 @@
 ##
 ## First start with some standard catkin stuff.
 cmake_minimum_required(VERSION 2.8.3)
-project(sematic_changes_visual)
+project(semantic_changes_visual)
 find_package(catkin REQUIRED COMPONENTS rviz message_generation)
 
 ## This plugin includes Qt widgets, so we must include Qt like so:
@@ -29,7 +29,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
-  sematic_changes_visual
+  semantic_changes_visual
 )
 catkin_package(
 	CATKIN_DEPENDS message_runtime sensor_msgs
@@ -38,20 +38,13 @@ catkin_package(
 ## Here we specify which header files need to be run through "moc",
 ## Qt's meta-object compiler.
 qt4_wrap_cpp(MOC_FILES
-  src/drive_widget.h
-  src/imu_display.h
-  src/plant_flag_tool.h
-  src/teleop_panel.h
+  src/change_display.h
 )
 
 ## Here we specify the list of source files, including the output of
 ## the previous command which is stored in ``${MOC_FILES}``.
 set(SOURCE_FILES
-  src/drive_widget.cpp
-  src/imu_display.cpp
-  src/imu_visual.cpp
-  src/plant_flag_tool.cpp
-  src/teleop_panel.cpp 
+  src/change_display.cpp
   ${MOC_FILES}
 )
 

@@ -12,15 +12,16 @@
 #include <pcl/common/eigen.h>
 
 #include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
 #include <pcl_conversions/pcl_conversions.h>
 
 #include <v4r/changedet/Visualizer3D.h>
 
-#include <sematic_changes_visual/ChangedScene.h>
+#include <semantic_changes_visual/ChangedScene.h>
 
 using namespace pcl;
 using namespace std;
-using namespace sematic_changes_visual;
+using namespace semantic_changes_visual;
 
 typedef PointXYZRGB PointT;
 typedef PointCloud<PointT> Cloud;
@@ -45,10 +46,10 @@ Cloud::Ptr genColorSphere(Eigen::Vector3f center, float radius, int points) {
       double pre_calc = sqrt (radius - pow (rand_x1, 2) - pow (rand_x2, 2));
       sphere->points[i].x = 2 * rand_x1 * pre_calc;
       sphere->points[i].y = 2 * rand_x2 * pre_calc;
-      sphere->points[i].z = 1 - 2 * (pow (rand_x1, 2) + pow (rand_x2, 2));
-      sphere->points[i].r = rand() % 50 + 127;
-      sphere->points[i].g = rand() % 50 + 127;
-      sphere->points[i].b = rand() % 50 + 127;
+      sphere->points[i].z = - 2 * (pow (rand_x1, 2) + pow (rand_x2, 2));
+      sphere->points[i].r = rand() % 255;
+      sphere->points[i].g = rand() % 255;
+      sphere->points[i].b = rand() % 255;
     }
 
   Eigen::Translation3f translation(center);
@@ -56,29 +57,53 @@ Cloud::Ptr genColorSphere(Eigen::Vector3f center, float radius, int points) {
   return sphere;
 }
 
+Cloud::Ptr genGround(float width, float depth, int points) {
+	Cloud::Ptr ground(new Cloud());
+	ground->width = points;
+	ground->height = 1;
+	ground->points.resize(ground->width * ground->height);
+	double rand_x1, rand_x2;
+	for (size_t i = 0; i < points; i++) {
+		float x = (rand() / (float)RAND_MAX) * width*2 - width;
+		float y = (rand() / (float)RAND_MAX) * depth*2 - width;
+		ground->points[i].x = x;
+		ground->points[i].y = y;
+		ground->points[i].z = 0;
+		int gray = 100 + rand() % 60;
+		ground->points[i].r = gray;
+		ground->points[i].g = gray;
+		ground->points[i].b = gray;
+	}
+	return ground;
+}
+
 int main(int argc, char *argv[]) {
 
-  const int POINTS_PER_SPHERE = 500;
-  const float SPHERE_RADIUS = 0.1;
+  const int POINTS_PER_SPHERE = 10000;
+  const float SPHERE_RADIUS = 0.2;
   const float DEG_TO_RAD = M_PI / 180.0;
-  const int SPHERES = 5;
+  const int SPHERES = 6;
+  const float ANGLE_DELTA = 360 / SPHERES;
 
   //Visualizer3D vis;
   float angle = 0;
   vector<Cloud::Ptr> spheres(SPHERES);
   Cloud::Ptr scene(new Cloud());
-  for(int i = 0; i < 5; i++, angle+=72.0) {
-    Eigen::Vector3f center(0.5, 0, 0);
-    spheres[i] = genColorSphere(center, SPHERE_RADIUS, POINTS_PER_SPHERE*6);
-    transformPointCloud(*spheres[i], *spheres[i], getTransformation(0, 0, 0, angle*DEG_TO_RAD, 0, 0));
+  for(int i = 0; i < SPHERES; i++, angle+=ANGLE_DELTA) {
+    Eigen::Vector3f center(1, 0, sqrt(SPHERE_RADIUS));
+    spheres[i] = genColorSphere(center, SPHERE_RADIUS, POINTS_PER_SPHERE);
+    transformPointCloud(*spheres[i], *spheres[i], getTransformation(0, 0, 0, 0, 0, angle*DEG_TO_RAD));
     //vis.addColorPointCloud(spheres[i]);
     *scene += *spheres[i];
   }
-  //vis.show();
+  Cloud::Ptr ground = genGround(2, 2, 100000);
+  *scene += *ground;
 
   ros::init(argc, argv, "test_of_semantic_changes_vis");
   ros::NodeHandle n;
-  ros::Publisher publisher = n.advertise<ChangedScene>("sem_changes", 1);
+  ros::Publisher publisher = n.advertise<ChangedScene>("sem_changes", 10);
+  tf::TransformBroadcaster t_broadcaster;
+  tf::Transform identity; identity.setIdentity();
 
   ChangedScene sceneMsg;
   toROSMsg(*scene, sceneMsg.scene_cloud);
@@ -102,8 +127,33 @@ int main(int argc, char *argv[]) {
   move.label = "moved_sphere";
   sceneMsg.moved.push_back(move);
 
-  publisher.publish(sceneMsg);
-  ros::spin();
+  SimpleChange preserve;
+  toROSMsg(*spheres[4], preserve.cloud);
+  preserve.id = 3;
+  preserve.label = "preserved_sphere";
+  sceneMsg.preserved.push_back(preserve);
+
+  ros::Rate loop_rate(1);
+
+  /**
+   * A count of how many messages we have sent. This is used to create
+   * a unique string for each message.
+   */
+  int count = 0;
+  while (ros::ok())
+  {
+	ros::Time now = ros::Time::now();
+    sceneMsg.header.frame_id = "test_changes";
+    sceneMsg.header.stamp = now;
+
+    t_broadcaster.sendTransform(tf::StampedTransform(identity, now, "test_changes", "map"));
+    publisher.publish(sceneMsg);
+
+    ros::spinOnce();
+
+    loop_rate.sleep();
+    ++count;
+  }
 
   return EXIT_SUCCESS;
 }

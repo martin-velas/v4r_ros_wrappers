@@ -1,24 +1,10 @@
-<library path="lib/sematic_changes_visual">
-  <class name="sematic_changes_visual/Teleop"
-         type="sematic_changes_visual::TeleopPanel"
-         base_class_type="rviz::Panel">
-    <description>
-      A panel widget allowing simple diff-drive style robot base control.
-    </description>
-  </class>
-  <class name="sematic_changes_visual/Imu"
-         type="sematic_changes_visual::ImuDisplay"
+<library path="lib/libsemantic_changes_visual">
+  <class name="semantic_changes_visual/Changes"
+         type="semantic_changes_visual::ChangeDisplay"
          base_class_type="rviz::Display">
     <description>
-      Displays direction and scale of accelerations from sensor_msgs/Imu messages.
+      Visualisation of semnatic changes.
     </description>
-    <message_type>sensor_msgs/Imu</message_type>
-  </class>
-  <class name="sematic_changes_visual/PlantFlag"
-         type="sematic_changes_visual::PlantFlagTool"
-         base_class_type="rviz::Tool">
-    <description>
-      Tool for planting flags on the ground plane in rviz.
-    </description>
+    <message_type>semantic_changes_visual/ChangedScene</message_type>
   </class>
 </library>
