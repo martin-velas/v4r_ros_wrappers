@@ -14,6 +14,8 @@ find_package(PCL 1.7 REQUIRED)
 
 find_package(V4R REQUIRED)
 
+find_package( OpenCV REQUIRED )
+
 include_directories(include
     ${PCL_INCLUDE_DIRS}
     ${V4R_INCLUDE_DIRS}
@@ -96,4 +98,12 @@ target_link_libraries(test_publisher
    ${V4R_LIBS}
    ${catkin_LIBRARIES}
    ${PCL_LIBRARIES}
+)
+
+add_executable(change_detection src/change_detection.cpp)
+target_link_libraries(change_detection
+   ${catkin_LIBRARIES}
+   ${PCL_LIBRARIES}
+   ${V4R_LIBS}
+   ${OpenCV_LIBS}
 )
