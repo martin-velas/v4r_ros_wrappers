@@ -4,7 +4,7 @@
 ## First start with some standard catkin stuff.
 cmake_minimum_required(VERSION 2.8.3)
 project(semantic_changes_visual)
-find_package(catkin REQUIRED COMPONENTS rviz message_generation)
+find_package(catkin REQUIRED COMPONENTS rviz message_generation eigen_conversions)
 
 ## This plugin includes Qt widgets, so we must include Qt like so:
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)
@@ -26,15 +26,30 @@ include_directories(include
 ## etc because they can conflict with boost signals, so define QT_NO_KEYWORDS here.
 add_definitions(-DQT_NO_KEYWORDS)
 
-add_message_files(FILES MoveChange.msg SimpleChange.msg ChangedScene.msg)
+add_message_files(
+  FILES 
+   MoveChange.msg
+   SimpleChange.msg
+   ChangedScene.msg
+   ObjectDetection.msg
+   ObjectLabel.msg
+)
+
+add_service_files(
+  FILES
+   get_removed_objects.srv
+)
+
 generate_messages(
   DEPENDENCIES
   std_msgs
   sensor_msgs
+  geometry_msgs
   semantic_changes_visual
 )
+
 catkin_package(
-	CATKIN_DEPENDS message_runtime sensor_msgs
+	CATKIN_DEPENDS message_runtime sensor_msgs eigen_conversions
 )
 
 ## Here we specify which header files need to be run through "moc",
@@ -102,6 +117,14 @@ target_link_libraries(test_publisher
 
 add_executable(change_detection src/change_detection.cpp)
 target_link_libraries(change_detection
+   ${catkin_LIBRARIES}
+   ${PCL_LIBRARIES}
+   ${V4R_LIBS}
+   ${OpenCV_LIBS}
+)
+
+add_executable(test_change_detection src/test_change_detection.cpp)
+target_link_libraries(test_change_detection
    ${catkin_LIBRARIES}
    ${PCL_LIBRARIES}
    ${V4R_LIBS}

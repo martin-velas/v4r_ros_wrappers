@@ -1,0 +1,5 @@
+sensor_msgs/PointCloud2 observation
+ObjectDetection[] objects
+geometry_msgs/Transform camera_pose
+---
+ObjectLabel[] removed_labels
