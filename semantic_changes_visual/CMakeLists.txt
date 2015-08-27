@@ -104,9 +104,6 @@ install(DIRECTORY media/
 install(DIRECTORY icons/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/icons)
 
-install(PROGRAMS scripts/send_test_msgs.py
-  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-  
 add_executable(test_publisher src/test_publisher.cpp)
 add_dependencies(test_publisher ${catkin_EXPORTED_TARGETS})
 target_link_libraries(test_publisher
