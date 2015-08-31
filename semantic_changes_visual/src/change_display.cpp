@@ -197,7 +197,7 @@ void ChangeDisplay::addArrow(Ogre::Vector3 from, Ogre::Vector3 to, int r, int g,
 }
 
 void ChangeDisplay::addText(std::string label, Ogre::Vector3 pos, int r, int g, int b) {
-	MovableText* text = new MovableText(label, "Arial", 0.1);
+	MovableText* text = new MovableText(label, "Arial", TEXT_SIZE);
 	MovableTextPtr annot(text);
 	annot->setTextAlignment(MovableText::H_CENTER, MovableText::V_ABOVE);
 	Ogre::SceneNode* frame_node = scene_node_->createChildSceneNode();
@@ -240,7 +240,7 @@ void ChangeDisplay::addAnnotatedBB( const Cloud& cloud, std::string label, int r
         }
     }
 
-    Ogre::Vector3 text_pos((min.x+max.x)/2, (min.y+max.y)/2, max.z+0.01);
+    Ogre::Vector3 text_pos((min.x+max.x)/2, min.y-TEXT_VERT_DIST, (min.z+max.z)/2);
     addText(label, text_pos, r, g, b);
 }
 

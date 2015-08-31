@@ -168,6 +168,9 @@ protected:
   std::vector<MovableTextPtr> annotations;
 
   std::vector<ArrowPtr> arrows;
+
+  static const float TEXT_SIZE = 0.05;
+  static const float TEXT_VERT_DIST = 0.01;
 };
 
 } // namespace rviz
