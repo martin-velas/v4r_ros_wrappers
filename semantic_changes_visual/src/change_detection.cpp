@@ -3,6 +3,9 @@
 
 #include <pcl/common/eigen.h>
 #include <pcl/filters/voxel_grid.h>
+#include <ros/ros.h>
+#include <tf/transform_broadcaster.h>
+#include <tf_conversions/tf_eigen.h>
 
 #include <v4r/changedet/Visualizer3D.h>
 #include <v4r/changedet/change_detection.h>
@@ -21,6 +24,7 @@ using namespace pcl;
 const string NODE_NAME = "semantic_changes_visual";
 const string SERVICE_NAME = "removal_detection_service";
 const string VIS_TOPIC_NAME = "semantic_changes";
+const string VIS_FRAME_ID = "sem_changes";
 
 class ChangeDetectionROS {
 
@@ -30,6 +34,7 @@ private:
 	ros::NodeHandle nodeHandler;
 	ros::ServiceServer removal_detection_service;
 	ros::Publisher vis_changes_publisher;
+	tf::TransformBroadcaster t_broadcaster;
 
 public:
 	ChangeDetectionROS() :
@@ -50,6 +55,12 @@ public:
 		Eigen::Affine3f camera_pose;
 		ObjectDetectionBridge::transformationFromROSMsg(req.camera_pose, camera_pose);
 
+		vector< v4r::ObjectDetection<PointXYZRGB> > detected_objects;
+		for(int i = 0; i < req.objects.size(); i++) {
+			detected_objects.push_back(
+					ObjectDetectionBridge::fromROSMsg<PointXYZRGB>(req.objects[i]));
+		}
+
 		if(!scene->empty()) {
 			v4r::ChangeDetector<PointXYZRGB> detector;
 			detector.detect(scene, observation, camera_pose);
@@ -64,7 +75,6 @@ public:
 				PCL_INFO("Object: %s(%d) has been [REMOVED]\n", label.c_str(), id);
 				v4r::ChangeDetector<PointXYZRGB>::removePointsFrom(scene,
 						history.getLastCloudOf(label));
-
 				semantic_changes_visual::ObjectLabel label_msg;
 				label_msg.id = id;
 				label_msg.label = label;
@@ -74,37 +84,41 @@ public:
 
 			*scene += *(detector.getAdded());
 
-			v4r::Visualizer3D vis;
+			/*v4r::Visualizer3D vis;
 			vis.addColorPointCloud(scene);
 			vis.setColor(0, 255, 0).addPointCloud(*detector.getAdded());
 			vis.setColor(255, 0, 0).addPointCloud(*detector.getRemoved());
 			Eigen::Vector3f viewport = (camera_pose).translation();
 			vis.getViewer()->addSphere(PointXYZ(viewport(0), viewport(1), viewport(2)),
 								0.1, 1.0, 0, 0, "cam-pos");
-			vis.show();
+			for(int i = 0; i < detected_objects.size(); i++) {
+				vis.addPointCloud(*(history.getLastCloudOf(detected_objects[i].getClass())));
+			}
+			vis.show();*/
 		} else {
 			ROS_INFO_STREAM("First observation");
 			*scene += *observation;
-			v4r::Visualizer3D().addColorPointCloud(scene).show();
 		}
 
-		vector< v4r::ObjectDetection<PointXYZRGB> > detected_objects;
-		for(int i = 0; i < req.objects.size(); i++) {
-			detected_objects.push_back(
-					ObjectDetectionBridge::fromROSMsg<PointXYZRGB>(req.objects[i]));
-		}
 		history.add(detected_objects);
 
-		publishChangesVisual();
+		publishChangesVisual(camera_pose);
 
 		return true;
 	}
 
-	void publishChangesVisual() {
-		semantic_changes_visual::ChangedScene sceneMsg;
+	void publishChangesVisual(const Eigen::Affine3f &camera_pose) {
+		ros::Time now = ros::Time::now();
 
-		sceneMsg.header.frame_id = "sem_changes";
-		sceneMsg.header.stamp = ros::Time::now();
+		tf::Transform transform;
+		Eigen::Matrix4f camera_pose_matrix = camera_pose.matrix();
+		Eigen::Affine3d camera_pose_double(camera_pose_matrix.cast<double>());
+		tf::transformEigenToTF(camera_pose_double.inverse(), transform);
+		t_broadcaster.sendTransform(tf::StampedTransform(transform, now, VIS_FRAME_ID, "map"));
+
+		semantic_changes_visual::ChangedScene sceneMsg;
+		sceneMsg.header.frame_id = VIS_FRAME_ID;
+		sceneMsg.header.stamp = now;
 		toROSMsg(*scene, sceneMsg.scene_cloud);
 
 		fillChanges(v4r::ObjectState::ADDED, sceneMsg.added);
@@ -113,7 +127,6 @@ public:
 		fillChanges(sceneMsg.moved);
 
 		vis_changes_publisher.publish(sceneMsg);
-
 	}
 
 	void fillChanges(const v4r::ObjectState::EventT event,

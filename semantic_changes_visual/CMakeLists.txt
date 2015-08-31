@@ -4,7 +4,7 @@
 ## First start with some standard catkin stuff.
 cmake_minimum_required(VERSION 2.8.3)
 project(semantic_changes_visual)
-find_package(catkin REQUIRED COMPONENTS rviz message_generation eigen_conversions)
+find_package(catkin REQUIRED COMPONENTS rviz message_generation eigen_conversions tf_conversions)
 
 ## This plugin includes Qt widgets, so we must include Qt like so:
 find_package(Qt4 COMPONENTS QtCore QtGui REQUIRED)

@@ -25,6 +25,47 @@
 using namespace std;
 using namespace pcl;
 
+typedef PointXYZRGB PointT;
+
+PointCloud<PointXYZRGB>::Ptr observation;
+
+v4r::ObjectDetection<PointT> loadObjectFromFile(const std::string &filename,
+		const Eigen::Affine3f &sensor_pose) {
+	typename pcl::PointCloud<PointT>::Ptr cloud(new pcl::PointCloud<PointT>());
+	pcl::io::loadPCDFile(filename, *cloud);
+
+	boost::filesystem::path file(filename);
+	std::string filename_only = file.stem().string();
+	std::string t_filename = file.parent_path().string() + "/" + filename_only + ".transformation";
+	std::ifstream t_file(t_filename.c_str());
+	float tx, ty, tz;
+	float qx, qy, qz, qw;
+	t_file >> tx >> ty >> tz >> qw >> qx >> qy >> qz;
+	Eigen::Quaternionf q(qw, qx, qy, qz);
+	Eigen::Translation3f translation(tx, ty, tz);
+	Eigen::Affine3f inter_pose(translation * q);
+
+	pcl::transformPointCloud(*cloud, *cloud, inter_pose.inverse());
+
+	std::string claz = filename_only.substr(0, filename_only.find("."));
+	static int gen_id = 0;
+	return v4r::ObjectDetection<PointT>(claz, gen_id++, cloud, sensor_pose*inter_pose );
+}
+
+std::vector< v4r::ObjectDetection<PointT> >
+loadObjectsFromDirectory(const std::string &dirname, const Eigen::Affine3f &pose) {
+	std::vector< v4r::ObjectDetection<PointT> > objects;
+
+	std::vector<std::string> object_filenames;
+	v4r::io::getFilesInDirectory(dirname, object_filenames, "", ".*.pcd", false);
+	for(std::vector<std::string>::iterator filename = object_filenames.begin();
+			filename < object_filenames.end(); filename++) {
+		objects.push_back(
+				loadObjectFromFile(dirname + "/" + *filename, pose));
+	}
+	return objects;
+}
+
 int main(int argc, char *argv[]) {
 
 	if(argc < 2) {
@@ -39,16 +80,17 @@ int main(int argc, char *argv[]) {
     ros::ServiceClient service_client =
     		node.serviceClient<semantic_changes_visual::get_removed_objects>(service_name_sv_rec);
 
+    map<string, PointCloud<PointXYZRGB>::Ptr > db_clouds;
+
     while(true) {
 		for(int i = 1; i < argc; i++) {
-			PointCloud<PointXYZRGB>::Ptr observation(new PointCloud<PointXYZRGB>());
+			sleep(3);
+
+			observation.reset(new PointCloud<PointXYZRGB>());
 			::io::loadPCDFile(argv[i], *observation);
 			Eigen::Affine3f new_pos = v4r::resetViewpoint<PointXYZRGB>(observation);
-			vector< v4r::ObjectDetection<PointXYZRGB> > objects = v4r::loadObjects<PointXYZRGB>(
+			vector< v4r::ObjectDetection<PointXYZRGB> > objects = loadObjectsFromDirectory(
 						string(argv[i]) + "_results", new_pos);
-
-			v4r::Visualizer3D().addColorPointCloud(observation)
-					.addPointCloud(*(objects[0].getCloud(false))).show();
 
 			semantic_changes_visual::get_removed_objects service_call;
 			toROSMsg(*observation, service_call.request.observation);
@@ -68,7 +110,6 @@ int main(int argc, char *argv[]) {
 					ROS_INFO_STREAM("\t" << service_call.response.removed_labels[i] << "\n");
 				}
 			}
-			sleep(3);
 		}
     }
 

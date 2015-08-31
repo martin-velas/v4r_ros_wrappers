@@ -33,7 +33,7 @@ public:
 			semantic_changes_visual::ObjectDetection &msg) {
 		msg.id = obj.getId();
 		msg.label = obj.getClass();
-		pcl::toROSMsg(*(obj.getCloud()), msg.cloud);
+		pcl::toROSMsg(*(obj.getCloud(false)), msg.cloud);
 		transformationToROSMsg(obj.getPose(), msg.pose);
 	}
 
