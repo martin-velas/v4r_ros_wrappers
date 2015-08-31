@@ -116,9 +116,10 @@ protected:
 
   void addMoveChanges( const std::vector<MoveChange>& changes);
 
-  void addColoredCloud( Cloud& cloud, int r, int g, int b );
+  void addColoredCloud( Cloud& cloud, int r, int g, int b, int alpha = 255 );
 
-  void addAnnotatedBB( const Cloud& cloud, std::string label, int r, int g, int b );
+  void addAnnotatedBB( const pcl::PointXYZ &min, const pcl::PointXYZ &max,
+		  std::string label, int r, int g, int b );
 
   void addLine(Ogre::Vector3 from, Ogre::Vector3 to, int r, int g, int b);
 
@@ -151,6 +152,41 @@ protected:
 	  middle.y = avg(min.y, max.y);
 	  middle.z = avg(min.z, max.z);
 	}
+
+  static void getClosestPointsOfBB(
+		  const pcl::PointXYZ &min_from, const pcl::PointXYZ &max_from,
+		  const pcl::PointXYZ &min_to, const pcl::PointXYZ &max_to,
+		  Ogre::Vector3 &arrow_from, Ogre::Vector3 &arrow_to) {
+	  std::vector<Ogre::Vector3> middles_from, middles_to;
+	  getFacesMiddlesOfBB(min_from, max_from, middles_from);
+	  getFacesMiddlesOfBB(min_to, max_to, middles_to);
+	  float min_dist = INFINITY;
+	  for(std::vector<Ogre::Vector3>::iterator mf = middles_from.begin(); mf < middles_from.end(); mf++) {
+		  for(std::vector<Ogre::Vector3>::iterator mt = middles_to.begin(); mt < middles_to.end(); mt++) {
+			  float dist = (*mf - *mt).length();
+			  if(dist < min_dist) {
+				  arrow_from = *mf;
+				  arrow_to = *mt;
+			  }
+			  min_dist = MIN(dist, min_dist);
+		  }
+	  }
+  }
+
+  static void getFacesMiddlesOfBB(const pcl::PointXYZ &min, const pcl::PointXYZ &max,
+		  std::vector<Ogre::Vector3> &middles) {
+	  Ogre::Vector3 middle(avg(min.x, max.x), avg(min.y, max.y), avg(min.z, max.z));
+	  Ogre::Vector3 dx((min.x - max.x)/2.0, 0.0, 0.0);
+	  Ogre::Vector3 dy(0.0, (min.y - max.y)/2.0, 0.0);
+	  Ogre::Vector3 dz(0.0, 0.0, (min.z - max.z)/2.0);
+	  for(int mx = -1; mx <= 1; mx++) {
+		  for(int my = -1; my <= 1; my++) {
+			  for(int mz = -1; mz <= 1; mz++) {
+				  middles.push_back(middle + mx*dx + my*dy + mz*dz);
+			  }
+		  }
+	  }
+  }
 
   rviz::IntProperty* queue_size_property_;
 

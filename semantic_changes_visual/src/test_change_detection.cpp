@@ -20,6 +20,7 @@
 #include <v4r/changedet/miscellaneous.h>
 
 #include <semantic_changes_visual/get_removed_objects.h>
+#include <semantic_changes_visual/reset_change_detection.h>
 #include <ObjectDetectionBridge.h>
 
 using namespace std;
@@ -80,6 +81,10 @@ int main(int argc, char *argv[]) {
     ros::ServiceClient service_client =
     		node.serviceClient<semantic_changes_visual::get_removed_objects>(service_name_sv_rec);
 
+    std::string service_reset_name_sv_rec = "/semantic_changes_visual/removal_detection_reset";
+    ros::ServiceClient service_reset =
+    		node.serviceClient<semantic_changes_visual::reset_change_detection>(service_reset_name_sv_rec);
+
     map<string, PointCloud<PointXYZRGB>::Ptr > db_clouds;
 
     while(true) {
@@ -110,6 +115,11 @@ int main(int argc, char *argv[]) {
 					ROS_INFO_STREAM("\t" << service_call.response.removed_labels[i] << "\n");
 				}
 			}
+		}
+		semantic_changes_visual::reset_change_detection reset;
+		if (!service_reset.call(reset)) {
+			ROS_ERROR("Error calling removal detection service.\n");
+			return false;
 		}
     }
 

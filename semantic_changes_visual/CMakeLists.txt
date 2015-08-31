@@ -38,6 +38,7 @@ add_message_files(
 add_service_files(
   FILES
    get_removed_objects.srv
+   reset_change_detection.srv
 )
 
 generate_messages(

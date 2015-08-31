@@ -129,8 +129,11 @@ void ChangeDisplay::addSimpleChanges( const std::vector<SimpleChange>& changes, 
     for(std::vector<SimpleChange>::const_iterator ch = changes.begin(); ch < changes.end(); ch++) {
         Cloud cloud;
         pcl::fromROSMsg(ch->cloud, cloud);
+        int alpha = (type == Change::REMOVE) ? 100 : 255;
         addColoredCloud(cloud, r, g, b);
-        addAnnotatedBB(cloud, ch->label, MAX(r,0), MAX(g,0), MAX(b,0));
+    	pcl::PointXYZ min, max;
+        getMinMax3DInCloud(cloud, min, max);
+        addAnnotatedBB(min, max, ch->label, MAX(r,0), MAX(g,0), MAX(b,0));
     }
 }
 
@@ -144,25 +147,28 @@ void ChangeDisplay::addMoveChanges( const std::vector<MoveChange>& changes) {
 		Cloud cloud_from, cloud_to;
 		pcl::fromROSMsg(ch->cloud_from, cloud_from);
 		pcl::fromROSMsg(ch->cloud_to, cloud_to);
-		addColoredCloud(cloud_from, r_from, g_from, b_from);
+		addColoredCloud(cloud_from, r_from, g_from, b_from, 100);
 		addColoredCloud(cloud_to, r_to, g_to, b_to);
-		addAnnotatedBB(cloud_from, ch->label, MAX(r_from,0), MAX(g_from,0), MAX(b_from,0));
-		addAnnotatedBB(cloud_to, ch->label, MAX(r_to,0), MAX(g_to,0), MAX(b_to,0));
 
-		pcl::PointXYZ from, to;
-		getMiddle3DInCloud(cloud_from, from);
-		getMiddle3DInCloud(cloud_to, to);
-		addArrow(Ogre::Vector3(from.x, from.y, from.z),
-				Ogre::Vector3(to.x, to.y, to.z),
+		pcl::PointXYZ min_from, max_from, min_to, max_to;
+		getMinMax3DInCloud(cloud_from, min_from, max_from);
+		addAnnotatedBB(min_from, max_from, ch->label, MAX(r_from,0), MAX(g_from,0), MAX(b_from,0));
+		getMinMax3DInCloud(cloud_to, min_to, max_to);
+		addAnnotatedBB(min_to, max_to, ch->label, MAX(r_to,0), MAX(g_to,0), MAX(b_to,0));
+
+		Ogre::Vector3 arrow_from, arrow_to;
+		getClosestPointsOfBB(min_from, max_from, min_to, max_to, arrow_from, arrow_to);
+		addArrow(arrow_from, arrow_to,
 				avg(r_from, r_to), avg(g_from, g_to), avg(b_from, b_from));
 	}
 }
 
-void ChangeDisplay::addColoredCloud( Cloud& cloud, int r, int g, int b ) {
+void ChangeDisplay::addColoredCloud( Cloud& cloud, int r, int g, int b, int alpha) {
     for(Cloud::iterator pt = cloud.begin(); pt < cloud.end(); pt++) {
         pt->r = (r > 0) ? r : pt->r;
         pt->g = (g > 0) ? g : pt->g;
         pt->b = (b > 0) ? b : pt->b;
+        pt->a = alpha;
     }
     display_cloud += cloud;
 }
@@ -183,12 +189,12 @@ void ChangeDisplay::addLine(Ogre::Vector3 from, Ogre::Vector3 to, int r, int g, 
 void ChangeDisplay::addArrow(Ogre::Vector3 from, Ogre::Vector3 to, int r, int g, int b) {
 	Ogre::SceneNode* frame_node = scene_node_->createChildSceneNode();
 	ArrowPtr arrow(new Arrow(context_->getSceneManager(), frame_node));
-	arrow->setColor(r/255.0, g/255.0, b/255.0, 1.0);
+	arrow->setColor(255.0, 0, 0, 1.0);
 	arrow->setPosition(from);
 	Ogre::Vector3 direct = to - from;
 	float length = direct.length();
 	arrow->setDirection(direct);
-	arrow->setScale(Ogre::Vector3(length*0.8, length*0.5, length*0.5));
+	arrow->setScale(Ogre::Vector3(length*0.9, length*2, length*2));
 
 	frame_node->setPosition(position);
 	frame_node->setOrientation(orientation);
@@ -209,10 +215,8 @@ void ChangeDisplay::addText(std::string label, Ogre::Vector3 pos, int r, int g, 
 	annotations.push_back(annot);
 }
 
-void ChangeDisplay::addAnnotatedBB( const Cloud& cloud, std::string label, int r, int g, int b ) {
+void ChangeDisplay::addAnnotatedBB( const pcl::PointXYZ &min, const pcl::PointXYZ &max, std::string label, int r, int g, int b ) {
 
-	pcl::PointXYZ min, max;
-    getMinMax3DInCloud(cloud, min, max);
     float x_coords[] = {min.x, max.x};
     float y_coords[] = {min.y, max.y};
     float z_coords[] = {min.z, max.z};
@@ -227,8 +231,7 @@ void ChangeDisplay::addAnnotatedBB( const Cloud& cloud, std::string label, int r
                         	eq += (ix1 == ix2);
                         	eq += (iy1 == iy2);
                         	eq += (iz1 == iz2);
-                        	// 0 = corners, 1 = rect, 2 = face diagonal, 3 = inner diagonal
-                        	if(eq <= 2) {
+                        	if(eq > 0) {
                         		addLine(Ogre::Vector3(x_coords[ix1], y_coords[iy1], z_coords[iz1]),
                         				Ogre::Vector3(x_coords[ix2], y_coords[iy2], z_coords[iz2]),
                         				r, g, b);

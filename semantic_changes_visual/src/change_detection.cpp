@@ -16,6 +16,7 @@
 #include <ObjectDetectionBridge.h>
 #include <ChangeDetectionBridge.h>
 #include <semantic_changes_visual/get_removed_objects.h>
+#include <semantic_changes_visual/reset_change_detection.h>
 #include <semantic_changes_visual/ChangedScene.h>
 
 using namespace std;
@@ -23,25 +24,31 @@ using namespace pcl;
 
 const string NODE_NAME = "semantic_changes_visual";
 const string SERVICE_NAME = "removal_detection_service";
+const string SERVICE_RESET_NAME = "removal_detection_reset";
 const string VIS_TOPIC_NAME = "semantic_changes";
 const string VIS_FRAME_ID = "sem_changes";
 
 class ChangeDetectionROS {
 
 private:
-	v4r::ObjectsHistory<PointXYZRGB> history;
+	v4r::ObjectsHistory<PointXYZRGB>::Ptr history;
 	pcl::PointCloud<PointXYZRGB>::Ptr scene;
+
 	ros::NodeHandle nodeHandler;
 	ros::ServiceServer removal_detection_service;
+	ros::ServiceServer removal_detection_reset;
 	ros::Publisher vis_changes_publisher;
 	tf::TransformBroadcaster t_broadcaster;
 
 public:
 	ChangeDetectionROS() :
 		scene(new pcl::PointCloud<PointXYZRGB>()),
+		history(new v4r::ObjectsHistory<PointXYZRGB>()),
 		nodeHandler("~") {
 		removal_detection_service = nodeHandler.advertiseService(
 				SERVICE_NAME, &ChangeDetectionROS::detect_removed_objects, this);
+		removal_detection_reset = nodeHandler.advertiseService(
+				SERVICE_RESET_NAME, &ChangeDetectionROS::reset, this);
 		vis_changes_publisher =
 				nodeHandler.advertise<semantic_changes_visual::ChangedScene>(VIS_TOPIC_NAME, 10);
 	}
@@ -68,13 +75,13 @@ public:
 			v4r::ChangeDetector<PointXYZRGB>::removePointsFrom(scene, detector.getRemoved());
 
 			PCL_INFO("======================== CHANGES: ==========================\n");
-			vector<v4r::ObjectIdLabeled> removed = history.markRemovedObjects(detector);
+			vector<v4r::ObjectIdLabeled> removed = history->markRemovedObjects(detector);
 			for(unsigned i = 0; i < removed.size(); i++) {
 				v4r::ObjectLabel label = removed[i].label;
 				int id = removed[i].id;
 				PCL_INFO("Object: %s(%d) has been [REMOVED]\n", label.c_str(), id);
 				v4r::ChangeDetector<PointXYZRGB>::removePointsFrom(scene,
-						history.getLastCloudOf(label));
+						history->getLastCloudOf(label));
 				semantic_changes_visual::ObjectLabel label_msg;
 				label_msg.id = id;
 				label_msg.label = label;
@@ -100,10 +107,19 @@ public:
 			*scene += *observation;
 		}
 
-		history.add(detected_objects);
+		history->add(detected_objects);
 
 		publishChangesVisual(camera_pose);
 
+		v4r::ObjectsHistory<PointXYZRGB>::incrementTime();
+
+		return true;
+	}
+
+	bool reset(semantic_changes_visual::reset_change_detection::Request & req,
+				semantic_changes_visual::reset_change_detection::Response & response) {
+		scene.reset(new pcl::PointCloud<PointXYZRGB>());
+		history.reset(new v4r::ObjectsHistory<PointXYZRGB>());
 		return true;
 	}
 
@@ -131,7 +147,7 @@ public:
 
 	void fillChanges(const v4r::ObjectState::EventT event,
 			vector<semantic_changes_visual::SimpleChange> &changes_msg) {
-		vector<v4r::ObjectChangeForVisual<pcl::PointXYZRGB> > changes = history.getChanges(event);
+		vector<v4r::ObjectChangeForVisual<pcl::PointXYZRGB> > changes = history->getChanges(event);
 		changes_msg.resize(changes.size());
 		for(int i = 0; i < changes.size(); i++) {
 			ROS_INFO_STREAM("Object " << changes[i].label << " has " << event << endl);
@@ -140,7 +156,7 @@ public:
 	}
 
 	void fillChanges(vector<semantic_changes_visual::MoveChange> &changes_msg) {
-		vector<v4r::ObjectChangeForVisual<pcl::PointXYZRGB> > changes = history.getChanges(
+		vector<v4r::ObjectChangeForVisual<pcl::PointXYZRGB> > changes = history->getChanges(
 			v4r::ObjectState::MOVED);
 		changes_msg.resize(changes.size());
 		for(int i = 0; i < changes.size(); i++) {
