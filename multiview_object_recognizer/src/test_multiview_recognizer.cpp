@@ -13,6 +13,7 @@
 #include "std_msgs/String.h"
 #include "recognition_srv_definitions/recognize.h"
 #include <v4r/io/filesystem.h>
+#include <sstream>
 
 class MultiViewRecognizerDemo
 {
@@ -95,6 +96,7 @@ public:
     {
         std::vector<std::string> test_cloud;
         v4r::io::getFilesInDirectory(directory_, test_cloud, "", ".*.pcd", false);
+        std::sort(test_cloud.begin(), test_cloud.end());
         for(size_t i=0; i < test_cloud.size(); i++)
         {
             pcl::PointCloud<PointT> cloud;
@@ -158,13 +160,16 @@ public:
                 ROS_ERROR("Error calling multiview recognition service. ");
                 return false;
             } else {
-            	std::string results_dir = directory_ + "/" + "results";
-            	boost::filesystem::create_directory(results_dir);
+            	static int index = 0;
+            	std::stringstream results_dir;
+            	results_dir << directory_ << "/" << "results" << index++;
+            	boost::filesystem::create_directory(results_dir.str());
 
             	recognition_srv_definitions::recognize::Response &resp = srv_rec.response;
             	for(int i = 0; i < resp.ids.size(); i++) {
-            		std::string id = resp.ids[i].data;
-            		std::vector<geometry_msgs::Point32> bbox = resp.bbox[i].point;
+            		std::stringstream id;
+            		id << resp.ids[i].data << "_" << i;
+            		//std::vector<geometry_msgs::Point32> bbox = resp.bbox[i].point;
             		geometry_msgs::Transform t = resp.transforms[i];
             		sensor_msgs::PointCloud2 model_cloud_ros = resp.models_cloud[i];
 
@@ -174,8 +179,8 @@ public:
             				t.rotation.x, t.rotation.y, t.rotation.z);
             		model_cloud.sensor_origin_ = Eigen::Vector4f(
             				t.translation.x, t.translation.y, t.translation.z, 1);*/
-            		pcl::io::savePCDFile(results_dir + "/" + id + ".pcd", model_cloud);
-            		std::ofstream t_file((results_dir + "/" + id + ".transformation").c_str());
+            		pcl::io::savePCDFile(results_dir.str() + "/" + id.str() + ".pcd", model_cloud);
+            		std::ofstream t_file((results_dir.str() + "/" + id.str() + ".transformation").c_str());
             		t_file << t.translation.x << " " << t.translation.y << " " << t.translation.z <<
             				" " << t.rotation.w << " " << t.rotation.x << " " << t.rotation.y <<
             				" " << t.rotation.z << std::endl;

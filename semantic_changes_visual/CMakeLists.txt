@@ -56,13 +56,14 @@ catkin_package(
 ## Here we specify which header files need to be run through "moc",
 ## Qt's meta-object compiler.
 qt4_wrap_cpp(MOC_FILES
-  src/change_display.h
+  include/change_display.h
 )
 
 ## Here we specify the list of source files, including the output of
 ## the previous command which is stored in ``${MOC_FILES}``.
 set(SOURCE_FILES
   src/change_display.cpp
+  src/bb_display.cpp
   ${MOC_FILES}
 )
 
@@ -106,7 +107,7 @@ install(DIRECTORY icons/
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/icons)
 
 add_executable(test_publisher src/test_publisher.cpp)
-add_dependencies(test_publisher ${catkin_EXPORTED_TARGETS})
+add_dependencies(test_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(test_publisher
    ${V4R_LIBS}
    ${catkin_LIBRARIES}
@@ -114,6 +115,7 @@ target_link_libraries(test_publisher
 )
 
 add_executable(change_detection src/change_detection.cpp)
+add_dependencies(change_detection ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(change_detection
    ${catkin_LIBRARIES}
    ${PCL_LIBRARIES}
@@ -122,6 +124,7 @@ target_link_libraries(change_detection
 )
 
 add_executable(test_change_detection src/test_change_detection.cpp)
+add_dependencies(test_change_detection ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(test_change_detection
    ${catkin_LIBRARIES}
    ${PCL_LIBRARIES}

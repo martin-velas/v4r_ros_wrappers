@@ -14,10 +14,13 @@
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/transforms.h>
+#include <pcl/common/common.h>
 
 #include <v4r/changedet/Visualizer3D.h>
 
 #include <semantic_changes_visual/ChangedScene.h>
+#include <ObjectDetectionBridge.h>
 
 using namespace pcl;
 using namespace std;
@@ -87,14 +90,16 @@ int main(int argc, char *argv[]) {
 
   //Visualizer3D vis;
   float angle = 0;
-  vector<Cloud::Ptr> spheres(SPHERES);
+  vector<Eigen::Affine3f> transforms(SPHERES);
   Cloud::Ptr scene(new Cloud());
+  Eigen::Vector3f center(1, 0, sqrt(SPHERE_RADIUS));
+  Cloud::Ptr sphere = genColorSphere(center, SPHERE_RADIUS, POINTS_PER_SPHERE);
+
   for(int i = 0; i < SPHERES; i++, angle+=ANGLE_DELTA) {
-    Eigen::Vector3f center(1, 0, sqrt(SPHERE_RADIUS));
-    spheres[i] = genColorSphere(center, SPHERE_RADIUS, POINTS_PER_SPHERE);
-    transformPointCloud(*spheres[i], *spheres[i], getTransformation(0, 0, 0, 0, 0, angle*DEG_TO_RAD));
-    //vis.addColorPointCloud(spheres[i]);
-    *scene += *spheres[i];
+	transforms[i] = getTransformation(0, 0, 0, 0, 0, angle*DEG_TO_RAD);
+	Cloud sphere_posed;
+	transformPointCloud(*sphere, sphere_posed, transforms[i]);
+	*scene += sphere_posed;
   }
   Cloud::Ptr ground = genGround(2, 2, 100000);
   *scene += *ground;
@@ -109,26 +114,30 @@ int main(int argc, char *argv[]) {
   toROSMsg(*scene, sceneMsg.scene_cloud);
 
   SimpleChange add;
-  toROSMsg(*spheres[0], add.cloud);
+  toROSMsg(*sphere, add.cloud);
+  ObjectDetectionBridge::transformationToROSMsg(transforms[0], add.pose);
   add.id = 0;
   add.label = "added_sphere";
   sceneMsg.added.push_back(add);
 
   SimpleChange remove;
-  toROSMsg(*spheres[1], remove.cloud);
+  toROSMsg(*sphere, remove.cloud);
+  ObjectDetectionBridge::transformationToROSMsg(transforms[1], remove.pose);
   remove.id = 1;
   remove.label = "removed_sphere";
   sceneMsg.removed.push_back(remove);
 
   MoveChange move;
-  toROSMsg(*spheres[2], move.cloud_from);
-  toROSMsg(*spheres[3], move.cloud_to);
+  toROSMsg(*sphere, move.cloud);
+  ObjectDetectionBridge::transformationToROSMsg(transforms[2], move.pose_from);
+  ObjectDetectionBridge::transformationToROSMsg(transforms[3], move.pose_to);
   move.id = 2;
   move.label = "moved_sphere";
   sceneMsg.moved.push_back(move);
 
   SimpleChange preserve;
-  toROSMsg(*spheres[4], preserve.cloud);
+  toROSMsg(*sphere, preserve.cloud);
+  ObjectDetectionBridge::transformationToROSMsg(transforms[4], preserve.pose);
   preserve.id = 3;
   preserve.label = "preserved_sphere";
   sceneMsg.preserved.push_back(preserve);

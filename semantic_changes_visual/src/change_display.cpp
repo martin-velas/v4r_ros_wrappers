@@ -127,13 +127,15 @@ void ChangeDisplay::addSimpleChanges( const std::vector<SimpleChange>& changes, 
     int r, g, b;
     Change::getColors(type, r, g, b);
     for(std::vector<SimpleChange>::const_iterator ch = changes.begin(); ch < changes.end(); ch++) {
-        Cloud cloud;
-        pcl::fromROSMsg(ch->cloud, cloud);
+        Cloud::Ptr cloud(new Cloud());
+        pcl::fromROSMsg(ch->cloud, *cloud);
+        Eigen::Affine3f pose;
+        ObjectDetectionBridge::transformationFromROSMsg(ch->pose, pose);
         int alpha = (type == Change::REMOVE) ? 100 : 255;
-        addColoredCloud(cloud, r, g, b);
-    	pcl::PointXYZ min, max;
-        getMinMax3DInCloud(cloud, min, max);
-        addAnnotatedBB(min, max, ch->label, MAX(r,0), MAX(g,0), MAX(b,0));
+        BBDisplay bb(cloud, pose);
+        pcl::transformPointCloud(*cloud, *cloud, pose);
+        addColoredCloud(*cloud, r, g, b, alpha);
+        addAnnotatedBB(bb, ch->label, MAX(r,0), MAX(g,0), MAX(b,0));
     }
 }
 
@@ -144,22 +146,30 @@ void ChangeDisplay::addMoveChanges( const std::vector<MoveChange>& changes) {
 	Change::getColors(Change::MOVE_TO, r_to, g_to, b_to);
 
 	for(std::vector<MoveChange>::const_iterator ch = changes.begin(); ch < changes.end(); ch++) {
-		Cloud cloud_from, cloud_to;
-		pcl::fromROSMsg(ch->cloud_from, cloud_from);
-		pcl::fromROSMsg(ch->cloud_to, cloud_to);
-		addColoredCloud(cloud_from, r_from, g_from, b_from, 100);
-		addColoredCloud(cloud_to, r_to, g_to, b_to);
+		Cloud::Ptr cloud(new Cloud());
+		Cloud::Ptr cloud_from(new Cloud());
+		Cloud::Ptr cloud_to(new Cloud());
+		pcl::fromROSMsg(ch->cloud, *cloud);
 
-		pcl::PointXYZ min_from, max_from, min_to, max_to;
-		getMinMax3DInCloud(cloud_from, min_from, max_from);
-		addAnnotatedBB(min_from, max_from, ch->label, MAX(r_from,0), MAX(g_from,0), MAX(b_from,0));
-		getMinMax3DInCloud(cloud_to, min_to, max_to);
-		addAnnotatedBB(min_to, max_to, ch->label, MAX(r_to,0), MAX(g_to,0), MAX(b_to,0));
+		Eigen::Affine3f pose_from, pose_to;
+		ObjectDetectionBridge::transformationFromROSMsg(ch->pose_to, pose_to);
+		ObjectDetectionBridge::transformationFromROSMsg(ch->pose_from, pose_from);
+		pcl::transformPointCloud(*cloud, *cloud_from, pose_from);
+		pcl::transformPointCloud(*cloud, *cloud_to, pose_to);
 
-		Ogre::Vector3 arrow_from, arrow_to;
-		getClosestPointsOfBB(min_from, max_from, min_to, max_to, arrow_from, arrow_to);
-		addArrow(arrow_from, arrow_to,
-				avg(r_from, r_to), avg(g_from, g_to), avg(b_from, b_from));
+		addColoredCloud(*cloud_from, r_from, g_from, b_from, 100);
+		addColoredCloud(*cloud_to, r_to, g_to, b_to);
+
+		BBDisplay bb_from(cloud, pose_from);
+		BBDisplay bb_to(cloud, pose_to);
+		addAnnotatedBB(bb_from, ch->label, MAX(r_from,0), MAX(g_from,0), MAX(b_from,0));
+		addAnnotatedBB(bb_to, ch->label, MAX(r_to,0), MAX(g_to,0), MAX(b_to,0));
+
+		LineSegment arrow = bb_from.getArrrowTo(bb_to);
+		addArrow(arrow.from, arrow.to,
+				BBDisplay::avg(r_from, r_to),
+				BBDisplay::avg(g_from, g_to),
+				BBDisplay::avg(b_from, b_from));
 	}
 }
 
@@ -194,7 +204,7 @@ void ChangeDisplay::addArrow(Ogre::Vector3 from, Ogre::Vector3 to, int r, int g,
 	Ogre::Vector3 direct = to - from;
 	float length = direct.length();
 	arrow->setDirection(direct);
-	arrow->setScale(Ogre::Vector3(length*0.9, length*2, length*2));
+	arrow->setScale(Ogre::Vector3(length*0.8, length, length));
 
 	frame_node->setPosition(position);
 	frame_node->setOrientation(orientation);
@@ -215,36 +225,14 @@ void ChangeDisplay::addText(std::string label, Ogre::Vector3 pos, int r, int g, 
 	annotations.push_back(annot);
 }
 
-void ChangeDisplay::addAnnotatedBB( const pcl::PointXYZ &min, const pcl::PointXYZ &max, std::string label, int r, int g, int b ) {
+void ChangeDisplay::addAnnotatedBB( const BBDisplay &bb, std::string label, int r, int g, int b ) {
 
-    float x_coords[] = {min.x, max.x};
-    float y_coords[] = {min.y, max.y};
-    float z_coords[] = {min.z, max.z};
+	vector<LineSegment> lines = bb.getLines();
+	for(vector<LineSegment>::iterator l = lines.begin(); l < lines.end(); l++) {
+		addLine(l->from, l->to, r, g, b);
+	}
 
-    for(int ix1 = 0; ix1 < 2; ix1++) {
-        for(int ix2 = 0; ix2 < 2; ix2++) {
-            for(int iy1 = 0; iy1 < 2; iy1++) {
-                for(int iy2 = 0; iy2 < 2; iy2++) {
-                    for(int iz1 = 0; iz1 < 2; iz1++) {
-                        for(int iz2 = 0; iz2 < 2; iz2++) {
-                        	int eq = 0;
-                        	eq += (ix1 == ix2);
-                        	eq += (iy1 == iy2);
-                        	eq += (iz1 == iz2);
-                        	if(eq > 0) {
-                        		addLine(Ogre::Vector3(x_coords[ix1], y_coords[iy1], z_coords[iz1]),
-                        				Ogre::Vector3(x_coords[ix2], y_coords[iy2], z_coords[iz2]),
-                        				r, g, b);
-                        	}
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ogre::Vector3 text_pos((min.x+max.x)/2, min.y-TEXT_VERT_DIST, (min.z+max.z)/2);
-    addText(label, text_pos, r, g, b);
+    addText(label, bb.getAnnotationPos(TEXT_VERT_DIST), r, g, b);
 }
 
 

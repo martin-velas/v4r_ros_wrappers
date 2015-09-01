@@ -6,6 +6,10 @@
 #include <ros/ros.h>
 #include <tf/transform_broadcaster.h>
 #include <tf_conversions/tf_eigen.h>
+#include <pcl/common/centroid.h>
+#include <pcl/point_types.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
 
 #include <v4r/changedet/Visualizer3D.h>
 #include <v4r/changedet/change_detection.h>
@@ -29,10 +33,14 @@ const string VIS_TOPIC_NAME = "semantic_changes";
 const string VIS_FRAME_ID = "sem_changes";
 
 class ChangeDetectionROS {
+public:
+	typedef PointXYZRGB PointT;
+	typedef PointCloud<PointT> Cloud;
 
 private:
-	v4r::ObjectsHistory<PointXYZRGB>::Ptr history;
-	pcl::PointCloud<PointXYZRGB>::Ptr scene;
+	v4r::ObjectsHistory<PointT>::Ptr history;
+	Cloud::Ptr scene;
+	Eigen::Affine3f first_camera_pose;
 
 	ros::NodeHandle nodeHandler;
 	ros::ServiceServer removal_detection_service;
@@ -42,8 +50,8 @@ private:
 
 public:
 	ChangeDetectionROS() :
-		scene(new pcl::PointCloud<PointXYZRGB>()),
-		history(new v4r::ObjectsHistory<PointXYZRGB>()),
+		scene(new Cloud()),
+		history(new v4r::ObjectsHistory<PointT>()),
 		nodeHandler("~") {
 		removal_detection_service = nodeHandler.advertiseService(
 				SERVICE_NAME, &ChangeDetectionROS::detect_removed_objects, this);
@@ -56,23 +64,23 @@ public:
 	bool detect_removed_objects(semantic_changes_visual::get_removed_objects::Request & req,
 			semantic_changes_visual::get_removed_objects::Response & response) {
 
-		PointCloud<PointXYZRGB>::Ptr observation(new PointCloud<PointXYZRGB>());
+		Cloud::Ptr observation(new Cloud());
 		pcl::fromROSMsg(req.observation, *observation);
 		observation = v4r::downsampleCloud<PointXYZRGB>(observation);
 		Eigen::Affine3f camera_pose;
 		ObjectDetectionBridge::transformationFromROSMsg(req.camera_pose, camera_pose);
 
-		vector< v4r::ObjectDetection<PointXYZRGB> > detected_objects;
+		vector< v4r::ObjectDetection<PointT> > detected_objects;
 		for(int i = 0; i < req.objects.size(); i++) {
 			detected_objects.push_back(
 					ObjectDetectionBridge::fromROSMsg<PointXYZRGB>(req.objects[i]));
 		}
 
 		if(!scene->empty()) {
-			v4r::ChangeDetector<PointXYZRGB> detector;
+			v4r::ChangeDetector<PointT> detector;
 			detector.detect(scene, observation, camera_pose);
 
-			v4r::ChangeDetector<PointXYZRGB>::removePointsFrom(scene, detector.getRemoved());
+			v4r::ChangeDetector<PointT>::removePointsFrom(scene, detector.getRemoved());
 
 			PCL_INFO("======================== CHANGES: ==========================\n");
 			vector<v4r::ObjectIdLabeled> removed = history->markRemovedObjects(detector);
@@ -80,7 +88,7 @@ public:
 				v4r::ObjectLabel label = removed[i].label;
 				int id = removed[i].id;
 				PCL_INFO("Object: %s(%d) has been [REMOVED]\n", label.c_str(), id);
-				v4r::ChangeDetector<PointXYZRGB>::removePointsFrom(scene,
+				v4r::ChangeDetector<PointT>::removePointsFrom(scene,
 						history->getLastCloudOf(label));
 				semantic_changes_visual::ObjectLabel label_msg;
 				label_msg.id = id;
@@ -105,11 +113,18 @@ public:
 		} else {
 			ROS_INFO_STREAM("First observation");
 			*scene += *observation;
+			first_camera_pose = camera_pose;
 		}
 
 		history->add(detected_objects);
 
-		publishChangesVisual(camera_pose);
+		Cloud::Ptr table(new Cloud());
+		Eigen::VectorXf coeff;
+		if(findPlane(table, coeff)) {
+			publishChangesVisual(getTransformationPlaneToHorizontal(table, coeff));
+		} else {
+			publishChangesVisual(first_camera_pose);
+		}
 
 		v4r::ObjectsHistory<PointXYZRGB>::incrementTime();
 
@@ -123,13 +138,13 @@ public:
 		return true;
 	}
 
-	void publishChangesVisual(const Eigen::Affine3f &camera_pose) {
+	void publishChangesVisual(const Eigen::Affine3f &pose) {
 		ros::Time now = ros::Time::now();
 
 		tf::Transform transform;
-		Eigen::Matrix4f camera_pose_matrix = camera_pose.matrix();
-		Eigen::Affine3d camera_pose_double(camera_pose_matrix.cast<double>());
-		tf::transformEigenToTF(camera_pose_double.inverse(), transform);
+		Eigen::Matrix4f pose_matrix = pose.matrix();
+		Eigen::Affine3d pose_double(pose_matrix.cast<double>());
+		tf::transformEigenToTF(pose_double.inverse(), transform);
 		t_broadcaster.sendTransform(tf::StampedTransform(transform, now, VIS_FRAME_ID, "map"));
 
 		semantic_changes_visual::ChangedScene sceneMsg;
@@ -164,9 +179,40 @@ public:
 			ChangeDetectionBridge::toROSMsg(changes[i], changes_msg[i]);
 		}
 	}
+
+	bool findPlane(Cloud::Ptr plane, Eigen::VectorXf &coeff) {
+		SampleConsensusModelPlane<PointT>::Ptr model_p(
+				new SampleConsensusModelPlane<PointT>(scene));
+	    std::vector<int> inliers;
+		pcl::RandomSampleConsensus<PointT> ransac(model_p);
+	    ransac.setDistanceThreshold(.01);
+	    if(!ransac.computeModel()) {
+	    	return false;
+	    }
+	    ransac.getInliers(inliers);
+	    copyPointCloud<PointT>(*scene, inliers, *plane);
+	    ransac.getModelCoefficients(coeff);
+	    return true;
+	}
+
+	// coeff = [nx, nx, nz, d]
+	Eigen::Affine3f getTransformationPlaneToHorizontal(Cloud::ConstPtr plane,
+			const Eigen::VectorXf &coeff, float above_ground = 0.0) {
+
+		Eigen::Vector3f src_norm(coeff(0), coeff(1), coeff(2));
+		Eigen::Vector3f dest_norm(0, coeff(1), 0);
+		Eigen::Quaternionf R = Eigen::Quaternionf().setFromTwoVectors(src_norm, dest_norm);
+
+		Eigen::Vector4f centroidH;
+		compute3DCentroid(*plane, centroidH);
+		Eigen::Vector3f centroid(centroidH(0), centroidH(1), centroidH(2));
+		Eigen::Affine3f t = R*Eigen::Translation3f::Identity();
+		pcl::transformPoint(centroid, centroid, t);
+
+		t = R*Eigen::Translation3f(0, -above_ground-centroid(1), 0);
+		return t;
+	}
 };
-
-
 
 int main(int argc, char *argv[]) {
 

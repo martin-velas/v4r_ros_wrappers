@@ -23,14 +23,7 @@ public:
 		msg.id = change.id;
 		msg.label = change.label;
 		pcl::toROSMsg(*(change.cloud), msg.cloud);
-	}
-
-	template<class PointType>
-	static void fromROSMsg(const semantic_changes_visual::SimpleChange &msg,
-			v4r::ObjectChangeForVisual<PointType> &change) {
-		change.id = msg.id;
-		change.label = msg.label;
-		pcl::fromROSMsg(msg.cloud, *(change.cloud));
+		ObjectDetectionBridge::transformationToROSMsg(change.pose, msg.pose);
 	}
 
 	template<class PointType>
@@ -38,17 +31,9 @@ public:
 			semantic_changes_visual::MoveChange &msg) {
 		msg.id = change.id;
 		msg.label = change.label;
-		pcl::toROSMsg(*(change.cloud), msg.cloud_to);
-		pcl::toROSMsg(*(change.cloud_previous), msg.cloud_from);
-	}
-
-	template<class PointType>
-	static void fromROSMsg(const semantic_changes_visual::MoveChange &msg,
-			v4r::ObjectChangeForVisual<PointType> &change) {
-		change.id = msg.id;
-		change.label = msg.label;
-		pcl::fromROSMsg(msg.cloud_to, *(change.cloud));
-		pcl::fromROSMsg(msg.cloud_from, *(change.cloud_previous));
+		pcl::toROSMsg(*(change.cloud), msg.cloud);
+		ObjectDetectionBridge::transformationToROSMsg(change.pose, msg.pose_to);
+		ObjectDetectionBridge::transformationToROSMsg(change.pose_previous, msg.pose_from);
 	}
 };
 
