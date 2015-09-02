@@ -91,41 +91,35 @@ int main(int argc, char *argv[]) {
   //Visualizer3D vis;
   float angle = 0;
   vector<Eigen::Affine3f> transforms(SPHERES);
-  Cloud::Ptr scene(new Cloud());
   Eigen::Vector3f center(1, 0, sqrt(SPHERE_RADIUS));
   Cloud::Ptr sphere = genColorSphere(center, SPHERE_RADIUS, POINTS_PER_SPHERE);
 
   for(int i = 0; i < SPHERES; i++, angle+=ANGLE_DELTA) {
 	transforms[i] = getTransformation(0, 0, 0, 0, 0, angle*DEG_TO_RAD);
-	Cloud sphere_posed;
-	transformPointCloud(*sphere, sphere_posed, transforms[i]);
-	*scene += sphere_posed;
   }
-  Cloud::Ptr ground = genGround(2, 2, 100000);
-  *scene += *ground;
 
   ros::init(argc, argv, "test_of_semantic_changes_vis");
   ros::NodeHandle n;
-  ros::Publisher publisher = n.advertise<ChangedScene>("sem_changes", 10);
+  ros::Publisher publisher_changes = n.advertise<ChangedScene>("sem_changes", 10);
+  ros::Publisher publisher_scene = n.advertise<sensor_msgs::PointCloud2>("sem_changes_scene", 10);
   tf::TransformBroadcaster t_broadcaster;
   tf::Transform identity; identity.setIdentity();
 
-  ChangedScene sceneMsg;
-  toROSMsg(*scene, sceneMsg.scene_cloud);
+  ChangedScene changesMsg;
 
   SimpleChange add;
   toROSMsg(*sphere, add.cloud);
   ObjectDetectionBridge::transformationToROSMsg(transforms[0], add.pose);
   add.id = 0;
   add.label = "added_sphere";
-  sceneMsg.added.push_back(add);
+  changesMsg.added.push_back(add);
 
   SimpleChange remove;
   toROSMsg(*sphere, remove.cloud);
   ObjectDetectionBridge::transformationToROSMsg(transforms[1], remove.pose);
   remove.id = 1;
   remove.label = "removed_sphere";
-  sceneMsg.removed.push_back(remove);
+  changesMsg.removed.push_back(remove);
 
   MoveChange move;
   toROSMsg(*sphere, move.cloud);
@@ -133,35 +127,41 @@ int main(int argc, char *argv[]) {
   ObjectDetectionBridge::transformationToROSMsg(transforms[3], move.pose_to);
   move.id = 2;
   move.label = "moved_sphere";
-  sceneMsg.moved.push_back(move);
+  changesMsg.moved.push_back(move);
 
   SimpleChange preserve;
   toROSMsg(*sphere, preserve.cloud);
   ObjectDetectionBridge::transformationToROSMsg(transforms[4], preserve.pose);
   preserve.id = 3;
   preserve.label = "preserved_sphere";
-  sceneMsg.preserved.push_back(preserve);
+  changesMsg.preserved.push_back(preserve);
+
+  Cloud::Ptr scene(new Cloud());
+  Cloud sphere_posed;
+  transformPointCloud(*sphere, sphere_posed, transforms[5]);
+  *scene += sphere_posed;
+  Cloud::Ptr ground = genGround(2, 2, 100000);
+  *scene += *ground;
+  sensor_msgs::PointCloud2 sceneMsg;
+  toROSMsg(*scene, sceneMsg);
 
   ros::Rate loop_rate(1);
 
-  /**
-   * A count of how many messages we have sent. This is used to create
-   * a unique string for each message.
-   */
-  int count = 0;
   while (ros::ok())
   {
 	ros::Time now = ros::Time::now();
+
+	changesMsg.header.frame_id = "test_changes";
+    changesMsg.header.stamp = now;
+    t_broadcaster.sendTransform(tf::StampedTransform(identity, now, "test_changes", "map"));
+    publisher_changes.publish(changesMsg);
+
     sceneMsg.header.frame_id = "test_changes";
     sceneMsg.header.stamp = now;
-
-    t_broadcaster.sendTransform(tf::StampedTransform(identity, now, "test_changes", "map"));
-    publisher.publish(sceneMsg);
+    publisher_scene.publish(sceneMsg);
 
     ros::spinOnce();
-
     loop_rate.sleep();
-    ++count;
   }
 
   return EXIT_SUCCESS;

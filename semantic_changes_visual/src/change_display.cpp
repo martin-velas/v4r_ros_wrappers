@@ -90,10 +90,6 @@ void ChangeDisplay::processMessage( const ChangedSceneConstPtr& scene )
 {
   initMessageProcessing(scene);
 
-  Cloud cloud;
-  pcl::fromROSMsg(scene->scene_cloud, cloud);
-  addColoredCloud(cloud, -1, -1, -1);
-
   addSimpleChanges(scene->removed, Change::REMOVE);
   addSimpleChanges(scene->added, Change::ADD);
   addSimpleChanges(scene->preserved, Change::PRESERVE);

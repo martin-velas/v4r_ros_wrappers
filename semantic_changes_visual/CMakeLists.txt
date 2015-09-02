@@ -100,12 +100,6 @@ install(FILES
   plugin_description.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
-install(DIRECTORY media/
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/media)
-
-install(DIRECTORY icons/
-  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/icons)
-
 add_executable(test_publisher src/test_publisher.cpp)
 add_dependencies(test_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(test_publisher

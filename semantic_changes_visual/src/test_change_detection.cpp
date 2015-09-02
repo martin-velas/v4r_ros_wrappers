@@ -110,15 +110,19 @@ int main(int argc, char *argv[]) {
 				ROS_ERROR("Error calling removal detection service.\n");
 				return false;
 			} else {
-				ROS_INFO_STREAM("Following object has been removed from the scene:\n");
-				for(int i = 0; i < service_call.response.removed_labels.size(); i++) {
-					ROS_INFO_STREAM("\t" << service_call.response.removed_labels[i] << "\n");
+				if(service_call.response.removed_labels.size() == 0) {
+					ROS_INFO_STREAM("No object has been removed from the scene.");
+				} else {
+					ROS_INFO_STREAM("Following objects have been removed from the scene:");
+					for(int i = 0; i < service_call.response.removed_labels.size(); i++) {
+						ROS_INFO_STREAM("\t" << service_call.response.removed_labels[i].label);
+					}
 				}
 			}
 		}
 		semantic_changes_visual::reset_change_detection reset;
 		if (!service_reset.call(reset)) {
-			ROS_ERROR("Error calling removal detection service.\n");
+			ROS_ERROR("Error calling reset of change detection service.\n");
 			return false;
 		}
     }
