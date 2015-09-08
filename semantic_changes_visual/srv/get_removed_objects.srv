@@ -3,3 +3,4 @@ ObjectDetection[] objects
 geometry_msgs/Transform camera_pose
 ---
 ObjectLabel[] removed_labels
+sensor_msgs/PointCloud2 removed_points

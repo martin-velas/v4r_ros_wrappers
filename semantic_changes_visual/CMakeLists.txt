@@ -100,6 +100,12 @@ install(FILES
   plugin_description.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
+install(DIRECTORY include/
+DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+FILES_MATCHING PATTERN "*.h"
+PATTERN ".svn" EXCLUDE
+)
+
 add_executable(test_publisher src/test_publisher.cpp)
 add_dependencies(test_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS})
 target_link_libraries(test_publisher

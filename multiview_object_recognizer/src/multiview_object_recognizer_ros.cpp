@@ -3,12 +3,16 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <v4r/common/visibility_reasoning.h>
+#include <v4r/changedet/ObjectDetection.h>
+
+#include <semantic_changes_visual/get_removed_objects.h>
+#include <semantic_changes_visual/ObjectDetectionBridge.h>
 
 namespace v4r
 {
 
 bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::Request &req,
-                            recognition_srv_definitions::recognize::Response &response) const
+                            recognition_srv_definitions::recognize::Response &response)
 {
     pcl::PointCloud<PointT>::Ptr pRecognizedModels (new pcl::PointCloud<PointT>);
     cv::Mat_<cv::Vec3b> annotated_img;
@@ -18,6 +22,8 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
     std::vector<ModelTPtr> models_verified;
     std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > transforms_verified;
     getVerifiedHypotheses(models_verified, transforms_verified);
+
+    previous_detections.clear();
 
     for (size_t j = 0; j < models_verified.size(); j++)
     {
@@ -126,6 +132,11 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
       text_start.y = std::max(0, min_v - 10);
       cv::putText(annotated_img, models_verified[j]->id_, text_start, cv::FONT_HERSHEY_COMPLEX_SMALL, 0.8, cv::Scalar(255,0,255), 1, CV_AA);
       cv::rectangle(annotated_img, cv::Point(min_u, min_v), cv::Point(max_u, max_v), cv::Scalar( 0, 255, 255 ), 2);
+
+      Eigen::Affine3f pose(transforms_verified[j]);
+      pcl::PointCloud<PointT>::ConstPtr cloud = model_cloud;
+      previous_detections.push_back(v4r::ObjectDetection<PointT>(
+    		  models_verified[j]->id_, (int)j, cloud, pose));
     }
 
     sensor_msgs::PointCloud2 recognizedModelsRos;
@@ -152,6 +163,33 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
     respondSrvCall(req, response);
     return true;
 }
+
+bool multiviewGraphROS::removedPointsCall(pcl::PointCloud<PointT>::ConstPtr scene,
+		const Eigen::Affine3f &pose) {
+	semantic_changes_visual::get_removed_objects::Request req;
+	semantic_changes_visual::get_removed_objects::Response resp;
+
+	pcl::toROSMsg(*scene, req.observation);
+	ObjectDetectionBridge::transformationToROSMsg(pose, req.camera_pose);
+
+	req.objects.resize(previous_detections.size());
+	for(int i = 0; i < previous_detections.size(); i++) {
+		ObjectDetectionBridge::toROSMsg(previous_detections[i], req.objects[i]);
+	}
+
+	if(!changes_service_client.call(req, resp)) {
+		ROS_WARN_STREAM("Unable to contact change detection service '" <<
+				changes_service_client.getService() << "'");
+		return false;
+	}
+
+	points_removed->clear();
+	pcl::fromROSMsg(resp.removed_points, *points_removed);
+	// TODO maybe also add the point clouds of removed object
+
+	return true;
+}
+
 
 bool multiviewGraphROS::initializeMV(int argc, char **argv)
 {
@@ -246,6 +284,10 @@ bool multiviewGraphROS::initializeMV(int argc, char **argv)
     recognition_serv_ = n_->advertiseService("multiview_recognition_service", &multiviewGraphROS::recognizeROS, this);
     it_.reset(new image_transport::ImageTransport(*n_));
     image_pub_ = it_->advertise("multiview_recogniced_object_instances_img", 1, true);
+
+    std::string service_name_sv_rec = "/semantic_changes_visual/removal_detection_service";
+    changes_service_client =
+    		n_->serviceClient<semantic_changes_visual::get_removed_objects>(service_name_sv_rec);
 
     std::cout << "Initialized multi-view recognizer with these settings:" << std::endl
               << "==========================================================" << std::endl;

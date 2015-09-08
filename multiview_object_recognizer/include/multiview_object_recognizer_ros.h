@@ -3,6 +3,7 @@
 
 #include <ros/ros.h>
 #include <image_transport/image_transport.h>
+#include <v4r/changedet/ObjectDetection.h>
 
 namespace v4r
 {
@@ -15,15 +16,18 @@ private:
     boost::shared_ptr<ros::NodeHandle> n_;
     ros::Publisher vis_pc_pub_;
     ros::ServiceServer recognition_serv_;
-    float resolution_;
+    ros::ServiceClient changes_service_client;
     size_t view_counter_;
+    std::vector< v4r::ObjectDetection<PointT> > previous_detections;
 
-    bool respondSrvCall (recognition_srv_definitions::recognize::Request & req, recognition_srv_definitions::recognize::Response & response) const;
+    bool respondSrvCall (recognition_srv_definitions::recognize::Request & req, recognition_srv_definitions::recognize::Response & response);
+
+    bool removedPointsCall(pcl::PointCloud<PointT>::ConstPtr scene,
+    		const Eigen::Affine3f &pose);
 
 public:
     multiviewGraphROS() : MultiviewRecognizer()
     {
-        resolution_ = 0.005f;
         view_counter_ = 0;
     }
 

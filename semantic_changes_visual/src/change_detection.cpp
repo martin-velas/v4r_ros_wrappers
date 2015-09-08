@@ -113,6 +113,7 @@ public:
 			*added += *(detector.getAdded());
 			*removed += *(detector.getRemoved());
 			*scene += *added;
+			toROSMsg(*removed, response.removed_points);
 		} else {
 			ROS_INFO_STREAM("First observation");
 			*scene += *observation;
