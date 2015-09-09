@@ -48,7 +48,7 @@
 
 #include <v4r/changedet/Visualizer3D.h>
 
-#include "change_display.h"
+#include "semantic_changes_visual/change_display.h"
 
 using namespace rviz;
 using namespace std;

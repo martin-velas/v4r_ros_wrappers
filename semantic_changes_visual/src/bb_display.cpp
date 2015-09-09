@@ -5,7 +5,7 @@
  *      Author: martin
  */
 
-#include "bb_display.h"
+#include "semantic_changes_visual/bb_display.h"
 
 #include <pcl/common/common.h>
 #include <pcl/common/transforms.h>

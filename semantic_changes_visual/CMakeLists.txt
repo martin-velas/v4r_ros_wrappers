@@ -50,13 +50,14 @@ generate_messages(
 )
 
 catkin_package(
+	INCLUDE_DIRS include
 	CATKIN_DEPENDS message_runtime sensor_msgs eigen_conversions
 )
 
 ## Here we specify which header files need to be run through "moc",
 ## Qt's meta-object compiler.
 qt4_wrap_cpp(MOC_FILES
-  include/change_display.h
+  include/semantic_changes_visual/change_display.h
 )
 
 ## Here we specify the list of source files, including the output of
@@ -100,7 +101,7 @@ install(FILES
   plugin_description.xml
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
-install(DIRECTORY include/
+install(DIRECTORY include/semantic_changes_visual
 DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 FILES_MATCHING PATTERN "*.h"
 PATTERN ".svn" EXCLUDE

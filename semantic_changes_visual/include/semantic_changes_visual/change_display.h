@@ -19,8 +19,8 @@
 #include <rviz/ogre_helpers/arrow.h>
 #include <rviz/ogre_helpers/movable_text.h>
 
-#include <ObjectDetectionBridge.h>
-#include <bb_display.h>
+#include <semantic_changes_visual/ObjectDetectionBridge.h>
+#include <semantic_changes_visual/bb_display.h>
 
 namespace semantic_changes_visual
 {

@@ -20,7 +20,7 @@
 #include <v4r/changedet/Visualizer3D.h>
 
 #include <semantic_changes_visual/ChangedScene.h>
-#include <ObjectDetectionBridge.h>
+#include <semantic_changes_visual/ObjectDetectionBridge.h>
 
 using namespace pcl;
 using namespace std;

@@ -17,8 +17,8 @@
 #include <v4r/changedet/ObjectHistory.h>
 #include <v4r/changedet/miscellaneous.h>
 
-#include <ObjectDetectionBridge.h>
-#include <ChangeDetectionBridge.h>
+#include <semantic_changes_visual/ObjectDetectionBridge.h>
+#include <semantic_changes_visual/ChangeDetectionBridge.h>
 #include <semantic_changes_visual/get_removed_objects.h>
 #include <semantic_changes_visual/reset_change_detection.h>
 #include <semantic_changes_visual/ChangedScene.h>

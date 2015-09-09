@@ -21,7 +21,7 @@
 
 #include <semantic_changes_visual/get_removed_objects.h>
 #include <semantic_changes_visual/reset_change_detection.h>
-#include <ObjectDetectionBridge.h>
+#include <semantic_changes_visual/ObjectDetectionBridge.h>
 
 using namespace std;
 using namespace pcl;

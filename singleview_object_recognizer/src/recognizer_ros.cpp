@@ -4,6 +4,7 @@
 
 #include <v4r/common/visibility_reasoning.h>
 #include <v4r/common/miscellaneous.h>
+#include <v4r/common/pcl_opencv.h>
 
 namespace v4r
 {

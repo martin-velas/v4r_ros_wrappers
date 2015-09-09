@@ -22,13 +22,16 @@ private:
 
     bool respondSrvCall (recognition_srv_definitions::recognize::Request & req, recognition_srv_definitions::recognize::Response & response);
 
-    bool removedPointsCall(pcl::PointCloud<PointT>::ConstPtr scene,
+    virtual void findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr observation,
     		const Eigen::Affine3f &pose);
 
 public:
     multiviewGraphROS() : MultiviewRecognizer()
     {
         view_counter_ = 0;
+    }
+
+    virtual ~multiviewGraphROS() {
     }
 
     bool recognizeROS (recognition_srv_definitions::recognize::Request & req, recognition_srv_definitions::recognize::Response & response);

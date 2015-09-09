@@ -4,6 +4,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <v4r/common/visibility_reasoning.h>
 #include <v4r/changedet/ObjectDetection.h>
+#include <v4r/common/pcl_opencv.h>
 
 #include <semantic_changes_visual/get_removed_objects.h>
 #include <semantic_changes_visual/ObjectDetectionBridge.h>
@@ -164,12 +165,12 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
     return true;
 }
 
-bool multiviewGraphROS::removedPointsCall(pcl::PointCloud<PointT>::ConstPtr scene,
+void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr observation,
 		const Eigen::Affine3f &pose) {
 	semantic_changes_visual::get_removed_objects::Request req;
 	semantic_changes_visual::get_removed_objects::Response resp;
 
-	pcl::toROSMsg(*scene, req.observation);
+	pcl::toROSMsg(*observation, req.observation);
 	ObjectDetectionBridge::transformationToROSMsg(pose, req.camera_pose);
 
 	req.objects.resize(previous_detections.size());
@@ -180,14 +181,12 @@ bool multiviewGraphROS::removedPointsCall(pcl::PointCloud<PointT>::ConstPtr scen
 	if(!changes_service_client.call(req, resp)) {
 		ROS_WARN_STREAM("Unable to contact change detection service '" <<
 				changes_service_client.getService() << "'");
-		return false;
+		return;
 	}
 
 	points_removed->clear();
 	pcl::fromROSMsg(resp.removed_points, *points_removed);
 	// TODO maybe also add the point clouds of removed object
-
-	return true;
 }
 
 
