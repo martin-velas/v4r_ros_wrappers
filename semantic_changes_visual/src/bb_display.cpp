@@ -32,7 +32,11 @@ BBDisplay::BBDisplay(const pcl::PointCloud<PointT>::Ptr cloud_orig, const Eigen:
 	corners.push_back(Ogre::Vector3(min.x, max.y, max.z));
 
 	for(vector<Ogre::Vector3>::iterator c = corners.begin(); c < corners.end(); c++) {
-		*c = transformPoint(*c, pose);
+		pcl::PointXYZ pt(c->x, c->y, c->z);
+		pt = transformPoint(pt, pose);
+		c->x = pt.x;
+		c->y = pt.y;
+		c->z = pt.z;
 	}
 }
 
