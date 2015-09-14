@@ -113,6 +113,11 @@ public:
 			*added += *(detector.getAdded());
 			*removed += *(detector.getRemoved());
 			*scene += *added;
+			/*
+			v4r::Visualizer3D().addColorPointCloud(scene)
+					.setColor(255, 0, 0).addPointCloud(*removed)
+					.setColor(0, 255, 0).addPointCloud(*added).show();
+			 */
 			toROSMsg(*removed, response.removed_points);
 		} else {
 			ROS_INFO_STREAM("First observation");

@@ -160,7 +160,9 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
     view_nr_ss << view_counter_++;
     view_name = view_nr_ss.str();
     pcl::fromROSMsg (req.cloud, *scene);
+    ROS_INFO("Starting [recongize]\n");
     recognize(scene, view_name, req.transform);
+    ROS_INFO("[recongize] is DONE\n");
     respondSrvCall(req, response);
     return true;
 }
@@ -170,7 +172,10 @@ void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr obse
 	semantic_changes_visual::get_removed_objects::Request req;
 	semantic_changes_visual::get_removed_objects::Response resp;
 
-	pcl::toROSMsg(*observation, req.observation);
+	pcl::PointCloud<PointT> transformed;
+	pcl::transformPointCloud(*observation, transformed, pose);
+	ROS_INFO_STREAM("POSE:\n" << pose.matrix());
+	pcl::toROSMsg(transformed, req.observation);
 	ObjectDetectionBridge::transformationToROSMsg(pose, req.camera_pose);
 
 	req.objects.resize(previous_detections.size());
