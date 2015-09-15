@@ -168,7 +168,8 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
 }
 
 void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr observation,
-		const Eigen::Affine3f &pose) {
+		const Eigen::Affine3f &pose,
+		pcl::PointCloud<PointT> &removed_points) {
 	semantic_changes_visual::get_removed_objects::Request req;
 	semantic_changes_visual::get_removed_objects::Response resp;
 
@@ -189,8 +190,7 @@ void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr obse
 		return;
 	}
 
-	points_removed->clear();
-	pcl::fromROSMsg(resp.removed_points, *points_removed);
+	pcl::fromROSMsg(resp.removed_points, removed_points);
 	// TODO maybe also add the point clouds of removed object
 }
 
