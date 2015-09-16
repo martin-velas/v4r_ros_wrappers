@@ -25,6 +25,8 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
     getVerifiedHypotheses(models_verified, transforms_verified);
 
     previous_detections.clear();
+    std::map<std::string, int> num_id_db;
+    int last_num_id = -1;
 
     for (size_t j = 0; j < models_verified.size(); j++)
     {
@@ -136,8 +138,11 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
 
       Eigen::Affine3f pose(transforms_verified[j]);
       pcl::PointCloud<PointT>::ConstPtr cloud = model_cloud;
-      previous_detections.push_back(v4r::ObjectDetection<PointT>(
-    		  models_verified[j]->id_, (int)j, cloud, pose));
+      std::string id = models_verified[j]->id_;
+      if(num_id_db.find(id) == num_id_db.end()) {
+    	  num_id_db[id] = ++last_num_id;
+      }
+      previous_detections.push_back(v4r::ObjectDetection<PointT>(id, num_id_db[id], cloud, pose));
     }
 
     sensor_msgs::PointCloud2 recognizedModelsRos;
@@ -160,9 +165,7 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
     view_nr_ss << view_counter_++;
     view_name = view_nr_ss.str();
     pcl::fromROSMsg (req.cloud, *scene);
-    ROS_INFO("Starting [recongize]\n");
     recognize(scene, view_name, req.transform);
-    ROS_INFO("[recongize] is DONE\n");
     respondSrvCall(req, response);
     return true;
 }

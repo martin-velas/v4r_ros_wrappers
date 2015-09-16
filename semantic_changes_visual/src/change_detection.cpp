@@ -95,8 +95,7 @@ public:
 		removed->clear();
 		if(!scene->empty()) {
 			v4r::ChangeDetector<PointT> detector;
-			detector.detect(scene, observation, camera_pose);
-
+			detector.detect(scene, observation, camera_pose, 0.03);
 			v4r::ChangeDetector<PointT>::removePointsFrom(scene, detector.getRemoved());
 
 			vector<v4r::ObjectIdLabeled> removed_objects = history->markRemovedObjects(detector);
@@ -112,6 +111,10 @@ public:
 			}
 			*added += *(detector.getAdded());
 			*removed += *(detector.getRemoved());
+			/*static v4r::Visualizer3D vis;
+			vis.keepOnlyClouds(0).setColor(255, 0, 255).addPointCloud(*removed)
+					.addColorPointCloud(scene)
+					.addColorPointCloud(observation).show();*/
 			*scene += *added;
 			/*
 			v4r::Visualizer3D().addColorPointCloud(scene)
