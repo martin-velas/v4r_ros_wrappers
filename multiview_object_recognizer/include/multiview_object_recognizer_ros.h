@@ -20,12 +20,14 @@ private:
     size_t view_counter_;
     std::vector< v4r::ObjectDetection<PointT> > previous_detections;
 
-    bool respondSrvCall (recognition_srv_definitions::recognize::Request & req, recognition_srv_definitions::recognize::Response & response);
+	bool respondSrvCall(recognition_srv_definitions::recognize::Request & req,
+			recognition_srv_definitions::recognize::Response & response);
 
-	virtual void findRemovedPoints(
+	virtual void findChangedPoints(
 			pcl::PointCloud<PointT>::ConstPtr observation,
 			const Eigen::Affine3f &pose,
-			pcl::PointCloud<PointT> &removed_points);
+			pcl::PointCloud<PointT> &removed_points,
+			pcl::PointCloud<PointT> &added_points);
 
 public:
     multiviewGraphROS() : MultiviewRecognizer()

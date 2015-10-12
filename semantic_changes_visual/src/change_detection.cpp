@@ -122,6 +122,7 @@ public:
 					.setColor(0, 255, 0).addPointCloud(*added).show();
 			 */
 			toROSMsg(*removed, response.removed_points);
+			toROSMsg(*added, response.added_points);
 		} else {
 			ROS_INFO_STREAM("First observation");
 			*scene += *observation;

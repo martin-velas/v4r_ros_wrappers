@@ -59,7 +59,7 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
       pcl::PointCloud<pcl::Normal>::ConstPtr normal_cloud = models_verified[j]->getNormalsAssembled ( resolution_ );
 
       pcl::PointCloud<pcl::Normal>::Ptr normal_aligned (new pcl::PointCloud<pcl::Normal>);
-      v4r::common::transformNormals(normal_cloud, normal_aligned, transforms_verified[j]);
+      v4r::transformNormals(normal_cloud, normal_aligned, transforms_verified[j]);
 
       //ratio of inlier points
       float confidence = 0;
@@ -67,7 +67,7 @@ bool multiviewGraphROS::respondSrvCall(recognition_srv_definitions::recognize::R
       const int img_width = 640;
       const int img_height = 480;
 
-      v4r::common::VisibilityReasoning<pcl::PointXYZRGB> vr (focal_length, img_width, img_height);
+      v4r::VisibilityReasoning<pcl::PointXYZRGB> vr (focal_length, img_width, img_height);
       vr.setThresholdTSS (0.01f);
       /*float fsv_ratio =*/ vr.computeFSVWithNormals (pInputCloud_, model_aligned, normal_aligned);
       confidence = 1.f - vr.getFSVUsedPoints() / static_cast<float>(model_aligned->points.size());
@@ -170,9 +170,11 @@ bool multiviewGraphROS::recognizeROS (recognition_srv_definitions::recognize::Re
     return true;
 }
 
-void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr observation,
-		const Eigen::Affine3f &pose,
-		pcl::PointCloud<PointT> &removed_points) {
+void multiviewGraphROS::findChangedPoints(
+			pcl::PointCloud<PointT>::ConstPtr observation,
+			const Eigen::Affine3f &pose,
+			pcl::PointCloud<PointT> &removed_points,
+			pcl::PointCloud<PointT> &added_points) {
 	semantic_changes_visual::get_removed_objects::Request req;
 	semantic_changes_visual::get_removed_objects::Response resp;
 
@@ -194,6 +196,7 @@ void multiviewGraphROS::findRemovedPoints(pcl::PointCloud<PointT>::ConstPtr obse
 	}
 
 	pcl::fromROSMsg(resp.removed_points, removed_points);
+	pcl::fromROSMsg(resp.added_points, added_points);
 	// TODO maybe also add the point clouds of removed object
 }
 
