@@ -240,6 +240,8 @@ bool multiviewGraphROS::initializeMV(int argc, char **argv)
     n_->getParam ( "extension_mode", mv_params_.extension_mode_);
     n_->getParam ( "max_vertices_in_graph", mv_params_.max_vertices_in_graph_);
     n_->getParam ( "distance_keypoints_get_discarded", mv_params_.distance_keypoints_get_discarded_);
+    n_->getParam ( "use_change_det_rec", mv_params_.use_chdet_for_reconstruction_);
+    n_->getParam ( "use_change_det_novelty_filter", mv_params_.use_chdet_novelty_filter_);
 
     n_->getParam ( "training_dir_sift", training_dir_sift);
     n_->getParam ( "training_dir_shot", training_dir_shot);
