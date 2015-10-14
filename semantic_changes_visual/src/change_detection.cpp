@@ -127,6 +127,8 @@ public:
 			ROS_INFO_STREAM("First observation");
 			*scene += *observation;
 			first_camera_pose = camera_pose;
+			*added += *observation;
+			toROSMsg(*added, response.added_points);
 		}
 
 		history->add(detected_objects);
