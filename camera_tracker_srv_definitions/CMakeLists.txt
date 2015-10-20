@@ -50,6 +50,7 @@ find_package(catkin REQUIRED COMPONENTS sensor_msgs std_msgs geometry_msgs messa
  add_service_files(
   FILES
    start_tracker.srv
+   restart_keyframes.srv
    stop_tracker.srv
    visualize_compound.srv
    do_ba.srv

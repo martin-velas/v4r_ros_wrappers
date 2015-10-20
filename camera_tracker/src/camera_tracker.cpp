@@ -31,6 +31,7 @@
 #include <pcl/features/normal_3d_omp.h>
 
 #include "camera_srv_definitions/start_tracker.h"
+#include "camera_srv_definitions/restart_keyframes.h"
 #include "camera_srv_definitions/stop_tracker.h"
 #include "camera_srv_definitions/visualize_compound.h"
 #include "camera_srv_definitions/get_tracking_results.h"
@@ -64,6 +65,7 @@ private:
     typedef pcl::PointXYZRGB PointT;
     boost::shared_ptr<ros::NodeHandle> n_;
     ros::ServiceServer cam_tracker_start_;
+    ros::ServiceServer cam_tracker_restart_keyframes_;
     ros::ServiceServer cam_tracker_stop_;
     ros::ServiceServer cam_tracker_vis_compound_;
     ros::ServiceServer cam_tracker_do_ba_;
@@ -92,6 +94,7 @@ private:
     double cos_min_delta_angle_;
     double sqr_min_cam_distance_;
     std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > cameras_;
+    int cameras_to_ignore_;
     std::vector<pcl::PointCloud<pcl::PointXYZRGB>> keyframes_;
     pcl::PointCloud<PointT>::Ptr scene_;
     int saved_clouds_;
@@ -147,7 +150,7 @@ private:
             v4r::invPose(pose, inv_pose);
 
             bool close_view_exists = false;
-            for (size_t z=0; z<cameras_.size(); z++)
+            for (size_t z = cameras_to_ignore_; z<cameras_.size(); z++)
             {
                 if ( (inv_pose.block<3,1>(0,2).dot(cameras_[z].block<3,1>(0,2)) > cos_min_delta_angle_) &&
                      (inv_pose.block<3,1>(0,3)-cameras_[z].block<3,1>(0,3)).squaredNorm() < sqr_min_cam_distance_ )
@@ -299,6 +302,14 @@ private:
 
         return true;
     }
+
+	bool restart_keyframes(
+			camera_srv_definitions::restart_keyframes::Request & req,
+			camera_srv_definitions::restart_keyframes::Response & response)
+	{
+		cameras_to_ignore_ = cameras_.size();
+		return true;
+	}
 
     bool
     start (camera_srv_definitions::start_tracker::Request & req,
@@ -595,11 +606,14 @@ public:
         double delta_angle_deg;
         n_.reset( new ros::NodeHandle ( "~" ) );
 
+        cameras_to_ignore_ = 0;
+
         confidence_publisher_ = n_->advertise<visualization_msgs::Marker>("confidence", 1);
         trajectory_publisher_ = n_->advertise<visualization_msgs::Marker>("trajectory", 1);
         keyframe_publisher_ = n_->advertise<visualization_msgs::Marker>("keyframes", 1);
 
         cam_tracker_start_  = n_->advertiseService ("start_recording", &CamTracker::start, this);
+        cam_tracker_restart_keyframes_  = n_->advertiseService("restart_keyframes", &CamTracker::restart_keyframes, this);
         cam_tracker_stop_  = n_->advertiseService ("stop_recording", &CamTracker::stop, this);
         cam_tracker_vis_compound_  = n_->advertiseService ("vis_compound", &CamTracker::visCompound, this);
         cam_tracker_do_ba_  = n_->advertiseService ("do_ba", &CamTracker::doBA, this);
